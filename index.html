@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="galaxy">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Real-time Hand-Tracking Anti-Gravity Controller & DJ Mode — manipulate floating particles and audio effects with your hand gestures using MediaPipe AI.">
+  <title>Aris — Anti-Gravity Hand Controller</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🖐️</text></svg>">
+</head>
+<body>
+  <div id="app-container">
+    <!-- Hidden video element for webcam -->
+    <video id="webcam-video" playsinline autoplay muted></video>
+
+    <!-- Hidden file input for audio -->
+    <input type="file" id="audio-file-input" accept="audio/*">
+
+    <!-- Camera + Landmark Canvas -->
+    <canvas id="camera-canvas"></canvas>
+
+    <!-- Particle + Effects Canvas -->
+    <canvas id="particle-canvas"></canvas>
+
+    <!-- Background overlay (theme-colored) -->
+    <div id="bg-overlay"></div>
+
+    <!-- ── Mode Switcher — Top Center ── -->
+    <div id="mode-switcher" class="glass-panel">
+      <button class="mode-btn active" data-mode="antigravity" id="mode-antigravity">
+        ✨ <span class="mode-label">Anti-Gravity</span>
+      </button>
+      <button class="mode-btn" data-mode="dj" id="mode-dj">
+        🎧 <span class="mode-label">DJ Mode</span>
+      </button>
+    </div>
+
+    <!-- ── HUD Panels ── -->
+
+    <!-- Stats Panel -->
+    <div id="hud-stats" class="glass-panel">
+      <div class="hud-row">
+        <span class="hud-label">Hands Detected:</span>
+        <span class="hud-value" id="hud-hands">0</span>
+      </div>
+      <div class="hud-row">
+        <span class="hud-label">FPS:</span>
+        <span class="hud-value" id="hud-fps">0</span>
+      </div>
+    </div>
+
+    <!-- Gesture Panel -->
+    <div id="hud-gesture-panel" class="glass-panel">
+      <div class="hud-row">
+        <span class="hud-label">Gesture:</span>
+        <span class="hud-value gesture-value">
+          <span class="gesture-dot"></span>
+          <span id="hud-gesture-text">No Hand</span>
+        </span>
+      </div>
+      <div class="hud-row">
+        <span class="hud-label">Spread:</span>
+        <span class="hud-value" id="hud-spread">0%</span>
+      </div>
+    </div>
+
+    <!-- Title Badge -->
+    <div id="title-badge" class="glass-panel">
+      <div class="title-main">Anti-Gravity Controller</div>
+      <div class="title-sub">Hand Tracking • MediaPipe AI</div>
+    </div>
+
+    <!-- ── DJ HUD Panel — Bottom Left ── -->
+    <div id="dj-hud" class="glass-panel dj-only">
+      <div class="dj-hud-title">DJ Effects</div>
+      <div class="hud-row">
+        <span class="hud-label">Effect:</span>
+        <span class="hud-value" id="dj-effect-name">None</span>
+      </div>
+      <div class="hud-row">
+        <span class="hud-label">Intensity:</span>
+        <span class="hud-value" id="dj-effect-intensity">0%</span>
+      </div>
+      <div class="hud-row">
+        <span class="hud-label">Track:</span>
+        <span class="hud-value" id="dj-track-name" style="font-size:11px;">No track</span>
+      </div>
+    </div>
+
+    <!-- ── DJ Transport Controls — Bottom Center ── -->
+    <div id="transport-bar" class="glass-panel dj-only">
+      <button class="transport-btn" id="transport-play" title="Play/Pause">▶</button>
+      <button class="transport-btn" id="transport-stop" title="Stop">⏹</button>
+      <div class="transport-progress">
+        <div class="progress-bar-container" id="progress-bar">
+          <div class="progress-bar-fill" id="progress-fill"></div>
+        </div>
+        <div class="transport-time">
+          <span id="transport-current">0:00</span>
+          <span id="transport-duration">0:00</span>
+        </div>
+      </div>
+      <button class="transport-btn" id="transport-loop" title="Toggle Loop">🔁</button>
+      <button class="transport-btn" id="transport-upload" title="Upload Track">📂</button>
+    </div>
+
+    <!-- Theme Selector Bar -->
+    <div id="theme-bar" class="glass-panel">
+      <button class="theme-btn active" data-theme="galaxy" id="theme-galaxy">
+        🌌 <span class="theme-label">Galaxy</span>
+      </button>
+      <button class="theme-btn" data-theme="rainbow" id="theme-rainbow">
+        🌈 <span class="theme-label">Rainbow</span>
+      </button>
+      <button class="theme-btn" data-theme="cyberpunk" id="theme-cyberpunk">
+        🤖 <span class="theme-label">Cyberpunk</span>
+      </button>
+      <button class="theme-btn" data-theme="ocean" id="theme-ocean">
+        🌊 <span class="theme-label">Ocean</span>
+      </button>
+      <button class="theme-btn" data-theme="lava" id="theme-lava">
+        🔥 <span class="theme-label">Lava</span>
+      </button>
+    </div>
+
+    <!-- ── Loading Screen ── -->
+    <div id="loading-screen">
+      <div class="loading-spinner"></div>
+      <p class="loading-text">Initializing...</p>
+      <p class="loading-sub">Loading MediaPipe Hand Tracking Model</p>
+    </div>
+
+    <!-- ── Instructions Overlay (Anti-Gravity) ── -->
+    <div id="instructions-overlay">
+      <div class="instructions-card">
+        <div class="instructions-emoji">🖐️✨</div>
+        <h1 class="instructions-title">Anti-Gravity Controller</h1>
+        <p class="instructions-body">
+          Use your hand gestures to control floating particles.<br>
+          No mouse or keyboard needed — just the "Force".
+        </p>
+        <ul class="gesture-list">
+          <li>
+            <span class="gesture-icon">✋</span>
+            <span><span class="gesture-name">Open Hand</span> — Repel particles</span>
+          </li>
+          <li>
+            <span class="gesture-icon">✊</span>
+            <span><span class="gesture-name">Fist</span> — Attract particles</span>
+          </li>
+          <li>
+            <span class="gesture-icon">🤏</span>
+            <span><span class="gesture-name">Pinch</span> — Grab & hold</span>
+          </li>
+          <li>
+            <span class="gesture-icon">✌️</span>
+            <span><span class="gesture-name">Victory</span> — Swirl vortex</span>
+          </li>
+          <li>
+            <span class="gesture-icon">👆</span>
+            <span><span class="gesture-name">Point</span> — Laser beam</span>
+          </li>
+        </ul>
+        <button class="start-btn" id="start-btn">Start Experience</button>
+      </div>
+    </div>
+
+    <!-- ── DJ Instructions Overlay ── -->
+    <div id="dj-instructions-overlay" class="hidden">
+      <div class="instructions-card dj-card">
+        <div class="instructions-emoji">🎧🔥</div>
+        <h1 class="instructions-title">DJ Mode</h1>
+        <p class="instructions-body">
+          Upload a track and control audio effects with your hands.<br>
+          Your gesture controls the effect, hand position controls parameters.
+        </p>
+
+        <!-- File Upload Zone -->
+        <div class="upload-zone" id="upload-zone">
+          <div class="upload-emoji">🎵</div>
+          <div class="upload-text">
+            <strong>Drop a track here</strong> or click to browse
+          </div>
+          <div class="upload-formats">MP3 • WAV • OGG • FLAC • AAC</div>
+        </div>
+
+        <ul class="gesture-list">
+          <li>
+            <span class="gesture-icon">✋</span>
+            <span><span class="gesture-name">Open Hand</span> — Filter sweep</span>
+          </li>
+          <li>
+            <span class="gesture-icon">✊</span>
+            <span><span class="gesture-name">Fist</span> — Bass + Distortion</span>
+          </li>
+          <li>
+            <span class="gesture-icon">🤏</span>
+            <span><span class="gesture-name">Pinch</span> — Volume control</span>
+          </li>
+          <li>
+            <span class="gesture-icon">✌️</span>
+            <span><span class="gesture-name">Victory</span> — Delay / Echo</span>
+          </li>
+          <li>
+            <span class="gesture-icon">👆</span>
+            <span><span class="gesture-name">Point</span> — Reverb</span>
+          </li>
+        </ul>
+
+        <button class="start-btn" id="dj-start-btn" disabled>Upload a track to start</button>
+      </div>
+    </div>
+
+    <!-- ── Error Overlay ── -->
+    <div id="error-overlay">
+      <div class="error-emoji">📷</div>
+      <h2 class="error-title">Camera Access Required</h2>
+      <p class="error-message" id="error-message">
+        Please allow camera access to use the hand tracker.
+      </p>
+    </div>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
