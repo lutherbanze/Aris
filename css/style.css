@@ -133,18 +133,71 @@ html, body {
   transition: background var(--transition-smooth);
 }
 
-/* ── Glassmorphism Panels ── */
+/* ────────────────────────────────────────────
+   Liquid Glass — layered translucent panel
+   • deep backdrop blur with saturation + brightness boost
+   • soft tint that picks up the theme color
+   • specular highlight on the top edge (::before)
+   • refractive 1px border gradient (::after)
+   • dual shadows (soft contact + deep ambient)
+   ──────────────────────────────────────────── */
 .glass-panel {
   position: absolute;
   z-index: 10;
-  background: var(--glass-bg);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--glass-shadow);
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--color-primary) 8%, transparent),
+      color-mix(in srgb, var(--color-secondary) 4%, transparent) 50%,
+      transparent 100%),
+    rgba(14, 10, 30, 0.42);
+  backdrop-filter: blur(30px) saturate(190%) brightness(115%) contrast(108%);
+  -webkit-backdrop-filter: blur(30px) saturate(190%) brightness(115%) contrast(108%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
   padding: var(--space-md) var(--space-lg);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+    0 1px 2px rgba(0, 0, 0, 0.18),
+    0 10px 28px -10px rgba(0, 0, 0, 0.55),
+    0 30px 60px -20px rgba(0, 0, 0, 0.4);
+  isolation: isolate;
   transition: background var(--transition-smooth), border-color var(--transition-smooth);
+}
+
+/* Specular highlight — bright sheen along the top */
+.glass-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.14) 0%,
+    rgba(255, 255, 255, 0.03) 28%,
+    transparent 60%);
+  pointer-events: none;
+}
+
+/* Refractive rim — gradient border simulated via mask */
+.glass-panel::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.28) 0%,
+    rgba(255, 255, 255, 0.04) 35%,
+    color-mix(in srgb, var(--color-accent) 18%, transparent) 70%,
+    rgba(255, 255, 255, 0.08) 100%);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  pointer-events: none;
 }
 
 /* ── HUD — Top Left ── */
@@ -577,6 +630,146 @@ body.dj-mode .dj-only {
   pointer-events: auto;
 }
 
+/* ── Floating Sound Pads (Bottom-center, above transport bar) ── */
+#sound-pads {
+  position: fixed;
+  bottom: 188px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: row;
+  gap: var(--space-md);
+  z-index: 25;
+}
+
+.sound-pad {
+  position: relative;
+  width: 78px;
+  height: 78px;
+  border-radius: 22px; /* squircle */
+  background:
+    radial-gradient(circle at 32% 28%,
+      color-mix(in srgb, var(--color-accent) 32%, transparent),
+      color-mix(in srgb, var(--color-primary) 20%, transparent) 55%,
+      transparent 100%),
+    rgba(14, 10, 30, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: var(--color-text-bright);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  backdrop-filter: blur(26px) saturate(190%) brightness(115%) contrast(108%);
+  -webkit-backdrop-filter: blur(26px) saturate(190%) brightness(115%) contrast(108%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.22),
+    0 1px 2px rgba(0, 0, 0, 0.2),
+    0 14px 32px -10px rgba(0, 0, 0, 0.55),
+    0 0 22px color-mix(in srgb, var(--color-accent) 30%, transparent);
+  animation: pad-float 3.6s ease-in-out infinite;
+  transition: transform 0.18s var(--transition-spring),
+              box-shadow 0.25s var(--transition-fast),
+              border-color 0.25s var(--transition-fast);
+  font-family: var(--font-ui);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* Stagger the floating animation so they breathe out-of-sync */
+.sound-pad:nth-child(1) { animation-delay: 0s; }
+.sound-pad:nth-child(2) { animation-delay: 0.4s; }
+.sound-pad:nth-child(3) { animation-delay: 0.8s; }
+.sound-pad:nth-child(4) { animation-delay: 1.2s; }
+.sound-pad:nth-child(5) { animation-delay: 1.6s; }
+
+.sound-pad-key {
+  position: absolute;
+  top: 6px;
+  right: 7px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--color-text-dim);
+  letter-spacing: 0.05em;
+  z-index: 2;
+}
+
+/* Pad specular highlight + rim */
+.sound-pad::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(circle at 30% 22%,
+    rgba(255, 255, 255, 0.35) 0%,
+    rgba(255, 255, 255, 0.05) 30%,
+    transparent 60%);
+  pointer-events: none;
+}
+
+.sound-pad::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.4) 0%,
+    rgba(255, 255, 255, 0.08) 35%,
+    color-mix(in srgb, var(--color-accent) 30%, transparent) 70%,
+    rgba(255, 255, 255, 0.1) 100%);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  pointer-events: none;
+}
+
+.sound-pad > * { position: relative; z-index: 1; }
+
+.sound-pad-emoji {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.sound-pad-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+  margin-top: 2px;
+}
+
+.sound-pad:hover {
+  transform: scale(1.06);
+  border-color: var(--color-accent);
+}
+
+.sound-pad.firing {
+  animation: pad-pulse 0.45s var(--transition-spring);
+  border-color: var(--color-accent);
+  box-shadow:
+    0 8px 40px rgba(0, 0, 0, 0.5),
+    0 0 60px var(--color-accent),
+    0 0 100px color-mix(in srgb, var(--color-primary) 70%, transparent);
+}
+
+@keyframes pad-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-10px); }
+}
+
+@keyframes pad-pulse {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.22); }
+  100% { transform: scale(1); }
+}
+
 /* ── DJ HUD Panel — Bottom Left ── */
 #dj-hud {
   bottom: 90px;
@@ -752,13 +945,365 @@ body.dj-mode .dj-only {
   margin-top: var(--space-xs);
 }
 
-/* Hidden file input */
-#audio-file-input {
+/* Hidden file inputs */
+#audio-file-input,
+#audio-file-input-b {
   display: none;
+}
+
+/* ────────────────────────────────────────────
+   DJ Advanced Toolbar (top center, under mode switcher)
+   ──────────────────────────────────────────── */
+#dj-toolbar {
+  top: calc(var(--space-lg) + 60px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-pill);
+  z-index: 22;
+}
+
+.tool-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-pill);
+  background: linear-gradient(180deg,
+    rgba(255, 255, 255, 0.08),
+    rgba(255, 255, 255, 0.02));
+  color: var(--color-text);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.15);
+}
+
+.tool-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
+}
+
+.tool-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.tool-btn.active {
+  background: color-mix(in srgb, var(--color-accent) 25%, transparent);
+  border-color: var(--color-accent);
+  color: var(--color-text-bright);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--color-accent) 50%, transparent);
+}
+
+.tool-btn .tool-icon { font-size: 14px; line-height: 1; }
+.tool-btn .tool-label { letter-spacing: 0.1em; }
+
+.tool-btn .record-dot { color: #ef4444; }
+.tool-btn.active .record-dot { animation: rec-blink 1s infinite; }
+@keyframes rec-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+.tool-select {
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--color-text);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+}
+
+.tool-select option {
+  background: #1a1530;
+  color: var(--color-text);
+}
+
+/* ────────────────────────────────────────────
+   Crossfader Panel
+   ──────────────────────────────────────────── */
+#crossfader-panel {
+  top: calc(var(--space-lg) + 116px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: var(--space-sm) var(--space-lg);
+  border-radius: var(--radius-md);
+  min-width: 320px;
+  z-index: 21;
+}
+
+#crossfader-panel[hidden] { display: none; }
+
+.xfade-labels {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-text-dim);
+  letter-spacing: 0.1em;
+  margin-bottom: 4px;
+}
+
+#crossfader-slider {
+  width: 100%;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--color-primary), rgba(255,255,255,0.1), var(--color-secondary));
+  outline: none;
+}
+
+#crossfader-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  cursor: pointer;
+  box-shadow: 0 0 12px var(--color-accent);
+}
+
+#crossfader-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  cursor: pointer;
+  box-shadow: 0 0 12px var(--color-accent);
+  border: none;
+}
+
+/* ────────────────────────────────────────────
+   EQ Kill Pills inside DJ HUD
+   ──────────────────────────────────────────── */
+.eq-kill-row { align-items: center; }
+.eq-kill-pills { display: inline-flex; gap: 4px; }
+.eq-pill {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--color-text-dim);
+  transition: all var(--transition-fast);
+}
+.eq-pill.killed {
+  background: #ef4444;
+  color: white;
+  border-color: #ef4444;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.8);
+}
+
+/* ────────────────────────────────────────────
+   Waveform timeline & loop markers
+   ──────────────────────────────────────────── */
+.progress-bar-container {
+  height: 28px; /* taller now to host the waveform */
+}
+
+#waveform-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.progress-bar-fill {
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--color-accent) 35%, transparent),
+    color-mix(in srgb, var(--color-primary) 40%, transparent));
+  mix-blend-mode: screen;
+  z-index: 2;
+}
+
+.loop-marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--color-accent);
+  box-shadow: 0 0 8px var(--color-accent);
+  z-index: 3;
+  pointer-events: none;
+}
+
+.loop-region {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  border-left: 2px solid var(--color-accent);
+  border-right: 2px solid var(--color-accent);
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* ────────────────────────────────────────────
+   Theme bar divider + Vivid toggle
+   ──────────────────────────────────────────── */
+.theme-divider {
+  width: 1px;
+  height: 18px;
+  background: linear-gradient(180deg,
+    transparent,
+    rgba(255, 255, 255, 0.18),
+    transparent);
+  margin: 0 4px;
+  align-self: center;
+}
+
+.vibe-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--color-text);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.vibe-toggle .vibe-icon { font-size: 14px; line-height: 1; }
+.vibe-toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+}
+body.natural-mode #natural-mode-toggle {
+  background: color-mix(in srgb, #fbbf24 28%, transparent);
+  border-color: #fbbf24;
+  color: #fff;
+  box-shadow: 0 0 14px rgba(251, 191, 36, 0.6);
+}
+
+body.minimal-ui #minimal-ui-toggle {
+  background: color-mix(in srgb, var(--color-accent) 28%, transparent);
+  border-color: var(--color-accent);
+  color: #fff;
+  box-shadow: 0 0 14px color-mix(in srgb, var(--color-accent) 60%, transparent);
+}
+
+/* ────────────────────────────────────────────
+   Minimal / Clean UI — hides info-only HUDs
+   ──────────────────────────────────────────── */
+body.minimal-ui #hud-stats,
+body.minimal-ui #hud-gesture-panel,
+body.minimal-ui #title-badge {
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+  transition: opacity var(--transition-smooth), visibility var(--transition-smooth);
+}
+
+/* ────────────────────────────────────────────
+   Natural / Vivid camera mode
+   • Drops the dark overlay
+   • Boosts saturation/contrast on the video feed
+   • Softens panel tint so the image still reads through
+   ──────────────────────────────────────────── */
+body.natural-mode #bg-overlay {
+  opacity: 0.08;
+}
+
+body.natural-mode #camera-canvas {
+  filter: saturate(135%) contrast(110%) brightness(108%);
+}
+
+body.natural-mode .glass-panel {
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--color-primary) 6%, transparent),
+      color-mix(in srgb, var(--color-secondary) 3%, transparent) 50%,
+      transparent 100%),
+    rgba(10, 8, 22, 0.22);
+  backdrop-filter: blur(34px) saturate(200%) brightness(108%) contrast(106%);
+  -webkit-backdrop-filter: blur(34px) saturate(200%) brightness(108%) contrast(106%);
+}
+
+body.natural-mode .glass-panel::before {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.22) 0%,
+    rgba(255, 255, 255, 0.05) 25%,
+    transparent 55%);
+}
+
+body.natural-mode .sound-pad {
+  background: radial-gradient(circle at 30% 30%,
+    color-mix(in srgb, var(--color-accent) 30%, transparent),
+    color-mix(in srgb, var(--color-primary) 18%, transparent) 60%,
+    rgba(255, 255, 255, 0.06) 100%);
+  backdrop-filter: blur(22px) saturate(200%) brightness(115%);
+  -webkit-backdrop-filter: blur(22px) saturate(200%) brightness(115%);
+}
+
+/* ────────────────────────────────────────────
+   Bass-reactive global pulse (CSS variable wired from JS)
+   ──────────────────────────────────────────── */
+:root {
+  --bass-pulse: 0; /* 0..1, set from JS each frame */
+}
+
+body.dj-mode .glass-panel {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+    0 1px 2px rgba(0, 0, 0, 0.18),
+    0 10px 28px -10px rgba(0, 0, 0, 0.55),
+    0 30px 60px -20px rgba(0, 0, 0, 0.4),
+    0 0 calc(var(--bass-pulse) * 40px) color-mix(in srgb, var(--color-accent) calc(var(--bass-pulse) * 60%), transparent);
+  transition: box-shadow 0.08s linear;
+}
+
+body.dj-mode #title-badge,
+body.dj-mode #dj-hud {
+  transform: scale(calc(1 + var(--bass-pulse) * 0.025));
+  transition: transform 0.08s ease-out;
+}
+
+/* ────────────────────────────────────────────
+   Responsive tweaks for the new toolbar
+   ──────────────────────────────────────────── */
+@media (max-width: 900px) {
+  #dj-toolbar { flex-wrap: wrap; max-width: 90vw; justify-content: center; }
+  #dj-toolbar .tool-label { display: none; }
+  #crossfader-panel { min-width: 80vw; }
 }
 
 /* ── DJ Instructions Card (wider for gesture table) ── */
 .instructions-card.dj-card {
-  max-width: 480px;
+  max-width: 520px;
 }
+
+.shortcuts-hint {
+  margin: var(--space-md) 0 var(--space-lg);
+  padding: var(--space-sm) var(--space-md);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--color-text-dim);
+}
+.shortcuts-hint strong { color: var(--color-accent); }
 

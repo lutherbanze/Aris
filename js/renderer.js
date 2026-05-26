@@ -262,6 +262,204 @@ export class Renderer {
   }
 
   /**
+   * Draw an energy/lightning beam between the two hands.
+   */
+  drawHandConnection(x1, y1, x2, y2, strength) {
+    if (!this.theme) return;
+    const ctx = this.partCtx;
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 1) return;
+
+    const s = Math.max(0.1, strength);
+    const jitter = 22 * s;
+    const segments = 18;
+
+    ctx.shadowBlur = 28;
+    ctx.shadowColor = this.theme.accent;
+
+    // Outer halo
+    ctx.strokeStyle = this.theme.primary;
+    ctx.lineWidth = 14;
+    ctx.globalAlpha = 0.18 * s;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+
+    // Jagged lightning core
+    ctx.strokeStyle = this.theme.accent;
+    ctx.lineWidth = 2.5;
+    ctx.globalAlpha = 0.9 * s;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    for (let i = 1; i < segments; i++) {
+      const t = i / segments;
+      const cx = x1 + dx * t + (Math.random() - 0.5) * jitter;
+      const cy = y1 + dy * t + (Math.random() - 0.5) * jitter;
+      ctx.lineTo(cx, cy);
+    }
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+
+    // Endpoint glows
+    for (const [ex, ey] of [[x1, y1], [x2, y2]]) {
+      const g = ctx.createRadialGradient(ex, ey, 0, ex, ey, 55);
+      g.addColorStop(0, this.theme.accent);
+      g.addColorStop(0.4, this.theme.primary);
+      g.addColorStop(1, 'transparent');
+      ctx.fillStyle = g;
+      ctx.globalAlpha = 0.5 * s;
+      ctx.beginPath();
+      ctx.arc(ex, ey, 55, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+  }
+
+  /**
+   * Continuous two-hand "scene": a curved energy ribbon with flowing
+   * particles connecting the palms, plus a rate badge at the midpoint.
+   * @param {number} t - normalized 0–1 separation (0=close, 1=wide)
+   * @param {number} rate - playback rate (for the label, e.g. 1.25)
+   */
+  drawHandSpanScene(x1, y1, x2, y2, t, rate) {
+    if (!this.theme) return;
+    const ctx = this.partCtx;
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 8) return;
+
+    const mx = (x1 + x2) / 2;
+    const my = (y1 + y2) / 2;
+
+    // Subtle sine bow — more curve when hands closer (tension feel)
+    const time = performance.now() * 0.001;
+    const bow = (1 - t) * 40 + Math.sin(time * 1.4) * 8;
+    const nx = -dy / len; // perpendicular
+    const ny = dx / len;
+    const cx = mx + nx * bow;
+    const cy = my + ny * bow;
+
+    // Ribbon body — quadratic curve, thick + glow
+    ctx.shadowBlur = 24;
+    ctx.shadowColor = this.theme.accent;
+
+    const grad = ctx.createLinearGradient(x1, y1, x2, y2);
+    grad.addColorStop(0, this.theme.primary);
+    grad.addColorStop(0.5, this.theme.accent);
+    grad.addColorStop(1, this.theme.primary);
+
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 6 + (1 - t) * 6;
+    ctx.globalAlpha = 0.45 + 0.35 * (1 - t);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.quadraticCurveTo(cx, cy, x2, y2);
+    ctx.stroke();
+
+    // Flowing dots along the curve (sample the quadratic)
+    const dotCount = 10;
+    const speed = 0.6 + (1 - t) * 0.8; // closer hands = faster flow
+    const phase = (time * speed) % 1;
+    for (let i = 0; i < dotCount; i++) {
+      const u = (i / dotCount + phase) % 1;
+      const omu = 1 - u;
+      const px = omu * omu * x1 + 2 * omu * u * cx + u * u * x2;
+      const py = omu * omu * y1 + 2 * omu * u * cy + u * u * y2;
+      ctx.fillStyle = this.theme.accent;
+      ctx.globalAlpha = 0.85;
+      ctx.beginPath();
+      ctx.arc(px, py, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.shadowBlur = 0;
+
+    // Rate badge at the midpoint
+    const label = `${rate.toFixed(2)}×`;
+    ctx.font = '600 14px "Inter", system-ui, sans-serif';
+    const metrics = ctx.measureText(label);
+    const padX = 10;
+    const padY = 6;
+    const bw = metrics.width + padX * 2;
+    const bh = 22;
+    const bx = mx - bw / 2;
+    const by = my - bh / 2;
+
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = 'rgba(15, 10, 35, 0.75)';
+    this._roundRect(ctx, bx, by, bw, bh, 11);
+    ctx.fill();
+    ctx.strokeStyle = this.theme.accent;
+    ctx.lineWidth = 1;
+    this._roundRect(ctx, bx, by, bw, bh, 11);
+    ctx.stroke();
+
+    ctx.fillStyle = this.theme.accent;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, mx, my + 0.5);
+    ctx.textAlign = 'start';
+    ctx.textBaseline = 'alphabetic';
+
+    ctx.globalAlpha = 1;
+  }
+
+  _roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  /**
+   * Draw an expanding ring burst for finger taps.
+   * @param {number} age - frames since the tap fired
+   * @param {number} maxAge - total lifespan in frames
+   */
+  drawTapBurst(x, y, age, maxAge) {
+    if (!this.theme) return;
+    const ctx = this.partCtx;
+    const progress = Math.min(1, age / maxAge);
+    const alpha = 1 - progress;
+    const radius = 14 + progress * 80;
+
+    ctx.shadowBlur = 18;
+    ctx.shadowColor = this.theme.glowColor;
+
+    ctx.strokeStyle = this.theme.accent;
+    ctx.lineWidth = 4 * (1 - progress);
+    ctx.globalAlpha = alpha;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Inner flash dot
+    ctx.fillStyle = this.theme.accent;
+    ctx.globalAlpha = alpha * 0.6;
+    ctx.beginPath();
+    ctx.arc(x, y, 6 * (1 - progress) + 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+  }
+
+  /**
    * Clear the particle canvas for the next frame.
    */
   clearParticles() {

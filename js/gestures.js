@@ -18,6 +18,7 @@ export const GESTURES = {
   PINCH: 'Pinch',
   VICTORY: 'Victory',
   POINTING: 'Pointing',
+  CONNECTION: 'Hand Fusion',
 };
 
 // Gesture → force mapping
@@ -28,7 +29,12 @@ export const GESTURE_FORCES = {
   [GESTURES.PINCH]: 'grab',
   [GESTURES.VICTORY]: 'swirl',
   [GESTURES.POINTING]: 'laser',
+  [GESTURES.CONNECTION]: null, // handled separately
 };
+
+// Thresholds for new gestures
+export const HAND_CONNECTION_THRESHOLD = 0.22; // normalized distance index-to-index
+const FINGER_TAP_THRESHOLD = 0.05; // thumb tip to other finger tip
 
 // Landmark indices
 const WRIST = 0;
@@ -231,4 +237,99 @@ export function getForceType(gesture) {
 export function getIndexTip(landmarks) {
   if (!landmarks || landmarks.length < 21) return { x: 0.5, y: 0.5 };
   return { x: landmarks[INDEX_TIP].x, y: landmarks[INDEX_TIP].y };
+}
+
+/**
+ * Detect connection between two hands via index fingertips.
+ * @param {Array} lm1 - first hand landmarks
+ * @param {Array} lm2 - second hand landmarks
+ * @returns {{ connected: boolean, strength: number, p1: {x,y}, p2: {x,y}, dist: number }}
+ */
+export function getHandConnection(lm1, lm2) {
+  if (!lm1 || !lm2 || lm1.length < 21 || lm2.length < 21) {
+    return { connected: false, strength: 0, p1: null, p2: null, dist: 1 };
+  }
+  const t1 = lm1[INDEX_TIP];
+  const t2 = lm2[INDEX_TIP];
+  const d = dist(t1, t2);
+  const connected = d < HAND_CONNECTION_THRESHOLD;
+  // 1.0 at touching, 0 at threshold
+  const strength = connected ? Math.max(0, 1 - d / HAND_CONNECTION_THRESHOLD) : 0;
+  return {
+    connected,
+    strength,
+    p1: { x: t1.x, y: t1.y },
+    p2: { x: t2.x, y: t2.y },
+    dist: d,
+  };
+}
+
+/**
+ * Stable per-hand anchor point (wrist + middle MCP midpoint).
+ * Use this for two-hand operations to avoid the global smoothing bug
+ * inside getPalmCenter.
+ */
+function handAnchor(lm) {
+  return {
+    x: (lm[WRIST].x + lm[MIDDLE_MCP].x) / 2,
+    y: (lm[WRIST].y + lm[MIDDLE_MCP].y) / 2,
+  };
+}
+
+/**
+ * Continuous two-hand span — distance between palm anchors.
+ * Returns null if both hands aren't fully tracked.
+ * @returns {{ p1:{x,y}, p2:{x,y}, dist:number, t:number } | null}
+ *   t is the normalized 0–1 separation (0 ≈ hands touching, 1 ≈ wide apart).
+ */
+export function getHandSpan(lm1, lm2) {
+  if (!lm1 || !lm2 || lm1.length < 21 || lm2.length < 21) return null;
+  const a = handAnchor(lm1);
+  const b = handAnchor(lm2);
+  const d = dist(a, b);
+  // Typical span range: ~0.15 (touching) to ~0.75 (arms wide on screen)
+  const t = Math.min(1, Math.max(0, (d - 0.15) / 0.55));
+  return { p1: a, p2: b, dist: d, t };
+}
+
+// Edge-trigger state for finger taps (per hand id)
+const tapStateMap = new Map();
+
+/**
+ * Detect edge-triggered finger taps (thumb tip touching middle / ring / pinky).
+ * Returns an event only on the frame the tap is initiated.
+ * @param {Array} landmarks
+ * @param {string} handId - stable identifier for the hand (e.g. 'Left'/'Right' or index)
+ * @returns {Array<{ finger: string, x: number, y: number }>}
+ */
+export function getFingerTaps(landmarks, handId) {
+  if (!landmarks || landmarks.length < 21) return [];
+
+  let prev = tapStateMap.get(handId);
+  if (!prev) {
+    prev = { middle: false, ring: false, pinky: false };
+    tapStateMap.set(handId, prev);
+  }
+
+  const thumb = landmarks[THUMB_TIP];
+  const events = [];
+  const targets = [
+    { name: 'middle', tip: landmarks[MIDDLE_TIP] },
+    { name: 'ring', tip: landmarks[RING_TIP] },
+    { name: 'pinky', tip: landmarks[PINKY_TIP] },
+  ];
+
+  for (const { name, tip } of targets) {
+    const touching = dist(thumb, tip) < FINGER_TAP_THRESHOLD;
+    if (touching && !prev[name]) {
+      events.push({
+        finger: name,
+        x: (thumb.x + tip.x) / 2,
+        y: (thumb.y + tip.y) / 2,
+      });
+    }
+    prev[name] = touching;
+  }
+
+  return events;
 }

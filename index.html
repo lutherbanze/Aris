@@ -16,6 +16,12 @@
     <!-- Hidden file input for audio -->
     <input type="file" id="audio-file-input" accept="audio/*">
 
+    <!-- Preloaded sound-pad sample -->
+    <audio id="sound-pad-fah-audio" src="assets/sounds/fahhh.mp3" preload="auto"></audio>
+
+    <!-- Hidden Deck B file input -->
+    <input type="file" id="audio-file-input-b" accept="audio/*">
+
     <!-- Camera + Landmark Canvas -->
     <canvas id="camera-canvas"></canvas>
 
@@ -70,6 +76,35 @@
       <div class="title-sub">Hand Tracking • MediaPipe AI</div>
     </div>
 
+    <!-- ── Floating Sound Pads (DJ only) ── -->
+    <div id="sound-pads" class="dj-only">
+      <button class="sound-pad" data-pad="fah" data-kind="sample" title="FAH (1)">
+        <span class="sound-pad-key">1</span>
+        <span class="sound-pad-emoji">😤</span>
+        <span class="sound-pad-label">FAH</span>
+      </button>
+      <button class="sound-pad" data-pad="kick" data-kind="synth" title="Kick (2)">
+        <span class="sound-pad-key">2</span>
+        <span class="sound-pad-emoji">🥁</span>
+        <span class="sound-pad-label">KICK</span>
+      </button>
+      <button class="sound-pad" data-pad="snare" data-kind="synth" title="Snare (3)">
+        <span class="sound-pad-key">3</span>
+        <span class="sound-pad-emoji">🪘</span>
+        <span class="sound-pad-label">SNARE</span>
+      </button>
+      <button class="sound-pad" data-pad="hat" data-kind="synth" title="Hat (4)">
+        <span class="sound-pad-key">4</span>
+        <span class="sound-pad-emoji">🎩</span>
+        <span class="sound-pad-label">HAT</span>
+      </button>
+      <button class="sound-pad" data-pad="riser" data-kind="synth" title="Riser (5)">
+        <span class="sound-pad-key">5</span>
+        <span class="sound-pad-emoji">🚀</span>
+        <span class="sound-pad-label">RISER</span>
+      </button>
+    </div>
+
     <!-- ── DJ HUD Panel — Bottom Left ── -->
     <div id="dj-hud" class="glass-panel dj-only">
       <div class="dj-hud-title">DJ Effects</div>
@@ -82,9 +117,72 @@
         <span class="hud-value" id="dj-effect-intensity">0%</span>
       </div>
       <div class="hud-row">
-        <span class="hud-label">Track:</span>
+        <span class="hud-label">Track A:</span>
         <span class="hud-value" id="dj-track-name" style="font-size:11px;">No track</span>
       </div>
+      <div class="hud-row">
+        <span class="hud-label">Track B:</span>
+        <span class="hud-value" id="dj-track-name-b" style="font-size:11px;">No track</span>
+      </div>
+      <div class="hud-row">
+        <span class="hud-label">BPM:</span>
+        <span class="hud-value" id="dj-bpm">—</span>
+      </div>
+      <div class="hud-row eq-kill-row">
+        <span class="hud-label">EQ Kill:</span>
+        <span class="eq-kill-pills">
+          <span class="eq-pill" data-band="low">LOW</span>
+          <span class="eq-pill" data-band="mid">MID</span>
+          <span class="eq-pill" data-band="high">HI</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- ── DJ Advanced Toolbar — Top Center (under mode switcher) ── -->
+    <div id="dj-toolbar" class="glass-panel dj-only">
+      <button class="tool-btn" id="btn-tap-tempo" title="Tap Tempo (T)">
+        <span class="tool-icon">👆</span><span class="tool-label">TAP</span>
+      </button>
+      <button class="tool-btn" id="btn-record" title="Record (R)">
+        <span class="tool-icon record-dot">●</span><span class="tool-label">REC</span>
+      </button>
+      <button class="tool-btn" id="btn-macro-rec" title="Macro Record (M)">
+        <span class="tool-icon">🎬</span><span class="tool-label">MACRO</span>
+      </button>
+      <button class="tool-btn" id="btn-macro-play" title="Macro Play (P)" disabled>
+        <span class="tool-icon">▶</span><span class="tool-label">PLAY</span>
+      </button>
+      <button class="tool-btn" id="btn-loop-in" title="Loop In (I)">
+        <span class="tool-icon">⇤</span><span class="tool-label">IN</span>
+      </button>
+      <button class="tool-btn" id="btn-loop-out" title="Loop Out (O)">
+        <span class="tool-icon">⇥</span><span class="tool-label">OUT</span>
+      </button>
+      <button class="tool-btn" id="btn-loop-clear" title="Clear Loop (X)">
+        <span class="tool-icon">⊘</span><span class="tool-label">CLR</span>
+      </button>
+      <select id="preset-select" class="tool-select" title="Preset mapping">
+        <option value="default">Default</option>
+        <option value="house">House</option>
+        <option value="dnb">DnB</option>
+        <option value="ambient">Ambient</option>
+      </select>
+      <select id="midi-select" class="tool-select" title="MIDI output">
+        <option value="">MIDI Off</option>
+      </select>
+      <button class="tool-btn" id="btn-deck-b" title="Load Deck B (B)">
+        <span class="tool-icon">💿</span><span class="tool-label">DECK B</span>
+      </button>
+    </div>
+
+    <!-- ── Crossfader (visible after deck B loaded) ── -->
+    <div id="crossfader-panel" class="glass-panel dj-only" hidden>
+      <div class="xfade-labels">
+        <span>DECK A</span>
+        <span id="xfade-value">CENTER</span>
+        <span>DECK B</span>
+      </div>
+      <input type="range" id="crossfader-slider" min="-100" max="100" value="0">
     </div>
 
     <!-- ── DJ Transport Controls — Bottom Center ── -->
@@ -93,7 +191,11 @@
       <button class="transport-btn" id="transport-stop" title="Stop">⏹</button>
       <div class="transport-progress">
         <div class="progress-bar-container" id="progress-bar">
+          <canvas id="waveform-canvas"></canvas>
           <div class="progress-bar-fill" id="progress-fill"></div>
+          <div class="loop-marker loop-marker-in" id="loop-marker-in" hidden></div>
+          <div class="loop-marker loop-marker-out" id="loop-marker-out" hidden></div>
+          <div class="loop-region" id="loop-region" hidden></div>
         </div>
         <div class="transport-time">
           <span id="transport-current">0:00</span>
@@ -120,6 +222,15 @@
       </button>
       <button class="theme-btn" data-theme="lava" id="theme-lava">
         🔥 <span class="theme-label">Lava</span>
+      </button>
+      <span class="theme-divider"></span>
+      <button class="vibe-toggle" id="natural-mode-toggle" title="Toggle Vivid camera view (V)">
+        <span class="vibe-icon">☀️</span>
+        <span class="vibe-label">Vivid</span>
+      </button>
+      <button class="vibe-toggle" id="minimal-ui-toggle" title="Hide debug HUD (H)">
+        <span class="vibe-icon">⊙</span>
+        <span class="vibe-label">Clean</span>
       </button>
     </div>
 
@@ -159,6 +270,14 @@
           <li>
             <span class="gesture-icon">👆</span>
             <span><span class="gesture-name">Point</span> — Laser beam</span>
+          </li>
+          <li>
+            <span class="gesture-icon">🤝</span>
+            <span><span class="gesture-name">Two-Hand Touch</span> — Fusion beam (touch index tips)</span>
+          </li>
+          <li>
+            <span class="gesture-icon">👌</span>
+            <span><span class="gesture-name">Finger Tap</span> — Burst (thumb taps middle / ring / pinky)</span>
           </li>
         </ul>
         <button class="start-btn" id="start-btn">Start Experience</button>
@@ -205,7 +324,28 @@
             <span class="gesture-icon">👆</span>
             <span><span class="gesture-name">Point</span> — Reverb</span>
           </li>
+          <li>
+            <span class="gesture-icon">🤝</span>
+            <span><span class="gesture-name">Hand Fusion</span> — "Drop" wash (touch index tips)</span>
+          </li>
+          <li>
+            <span class="gesture-icon">↔️</span>
+            <span><span class="gesture-name">Two-Hand Span</span> — Pitch / playback rate (palms close/far)</span>
+          </li>
+          <li>
+            <span class="gesture-icon">✊✊</span>
+            <span><span class="gesture-name">Both Fists</span> — Hold to stutter / beat-repeat</span>
+          </li>
+          <li>
+            <span class="gesture-icon">👌</span>
+            <span><span class="gesture-name">Finger Tap</span> — EQ kill (middle=low · ring=mid · pinky=high)</span>
+          </li>
         </ul>
+
+        <div class="shortcuts-hint">
+          <strong>Shortcuts:</strong>
+          Space play · ←/→ seek · 1-5 pads · Q/W/E EQ kill · T tap-tempo · S hold stutter · I/O loop in/out · X clear loop · R rec · M macro rec · P macro play · B deck B · [/] theme · V vivid · H clean UI
+        </div>
 
         <button class="start-btn" id="dj-start-btn" disabled>Upload a track to start</button>
       </div>

@@ -202,6 +202,55 @@ export class ParticleSystem {
     }
   }
 
+  /**
+   * Pull particles toward the line connecting two hands (fusion beam).
+   */
+  applyConnectionForce(x1, y1, x2, y2, strength = 1) {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const lineLenSq = dx * dx + dy * dy;
+    if (lineLenSq < 1) return;
+    const lineLen = Math.sqrt(lineLenSq);
+
+    const beamHalfWidth = 240;
+    const baseForce = 0.55 * strength;
+
+    for (const p of this.particles) {
+      const t = Math.max(0, Math.min(1, ((p.x - x1) * dx + (p.y - y1) * dy) / lineLenSq));
+      const projX = x1 + dx * t;
+      const projY = y1 + dy * t;
+      const ox = p.x - projX;
+      const oy = p.y - projY;
+      const perpDist = Math.sqrt(ox * ox + oy * oy);
+      if (perpDist > beamHalfWidth || perpDist < 0.5) continue;
+
+      const falloff = 1 - perpDist / beamHalfWidth;
+      const pull = baseForce * falloff;
+      p.applyForce(-(ox / perpDist) * pull * 2, -(oy / perpDist) * pull * 2);
+
+      // Drift along the beam toward the midpoint for a tight fusion look
+      const midPull = (0.5 - t) * baseForce * 0.4;
+      p.applyForce((dx / lineLen) * midPull, (dy / lineLen) * midPull);
+    }
+  }
+
+  /**
+   * Radial explosive burst at a point (used by finger taps).
+   */
+  applyBurst(x, y, strength = 1) {
+    const radius = 220;
+    const baseForce = 1.6 * strength;
+    for (const p of this.particles) {
+      const dx = p.x - x;
+      const dy = p.y - y;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d > radius || d < 1) continue;
+      const falloff = 1 - d / radius;
+      const f = baseForce * falloff;
+      p.applyForce((dx / d) * f, (dy / d) * f);
+    }
+  }
+
   update(dt) {
     if (!this.theme) return;
 
