@@ -951,6 +951,302 @@ body.dj-mode .dj-only {
   display: none;
 }
 
+/* ════════════════════════════════════════════
+   MIXER MODE — Liquid Glass faders
+   ════════════════════════════════════════════ */
+
+/* Visibility — only show in mixer mode, hide everything else */
+.mixer-only {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity var(--transition-smooth), visibility var(--transition-smooth);
+}
+body.mixer-mode .mixer-only {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+body.mixer-mode .antigravity-only,
+body.mixer-mode .dj-only,
+body.mixer-mode #hud-stats,
+body.mixer-mode #hud-gesture-panel,
+body.mixer-mode #title-badge,
+body.mixer-mode #theme-bar {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Camera becomes a soft, blurred ambient backdrop in mixer mode */
+body.mixer-mode #camera-canvas {
+  filter: blur(60px) saturate(160%) brightness(45%);
+}
+body.mixer-mode #bg-overlay {
+  opacity: 0.55;
+}
+
+#mixer-stage {
+  position: fixed;
+  inset: 0;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Corner buttons — minimal floating glass */
+.mixer-corner-btn {
+  position: absolute;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    radial-gradient(circle at 32% 28%,
+      rgba(255, 255, 255, 0.15),
+      transparent 60%),
+    rgba(14, 10, 30, 0.45);
+  color: var(--color-text-bright);
+  font-size: 18px;
+  cursor: pointer;
+  backdrop-filter: blur(24px) saturate(180%) brightness(115%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%) brightness(115%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+    0 8px 24px -6px rgba(0, 0, 0, 0.5);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  z-index: 15;
+}
+.mixer-corner-btn:hover { transform: scale(1.08); border-color: var(--color-accent); }
+
+#mixer-layout-btn { top: var(--space-lg); left: var(--space-lg); }
+#mixer-upload-btn { top: var(--space-lg); right: calc(var(--space-lg) + 60px); }
+#mixer-play-btn   { top: var(--space-lg); right: var(--space-lg); }
+
+#mixer-empty-hint {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-ui);
+  font-size: 18px;
+  color: var(--color-text-dim);
+  letter-spacing: 0.06em;
+  pointer-events: none;
+}
+body.mixer-mode #mixer-stage:not(.has-track) #mixer-empty-hint { display: flex; }
+body.mixer-mode #mixer-stage:not(.has-track) #mixer-faders { display: none; }
+
+/* ── Fader bank container ── */
+#mixer-faders {
+  display: flex;
+  gap: var(--space-lg);
+  padding: var(--space-xl);
+}
+#mixer-faders.vertical {
+  flex-direction: row;
+  align-items: stretch;
+  height: 78vh;
+}
+#mixer-faders.horizontal {
+  flex-direction: column;
+  width: 78vw;
+  height: auto;
+}
+
+/* ── Single fader (Liquid Glass) ── */
+.mixer-fader {
+  --fill: 0;            /* 0..1 set from JS each frame */
+  --c: var(--color-accent);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  isolation: isolate;
+}
+
+/* Vertical orientation */
+#mixer-faders.vertical .mixer-fader {
+  flex-direction: column-reverse;
+  width: 96px;
+  padding: 12px 0;
+}
+#mixer-faders.vertical .mixer-fader-track {
+  position: relative;
+  width: 64px;
+  flex: 1 1 auto;
+  border-radius: 32px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg,
+      rgba(0, 0, 0, 0.25),
+      rgba(0, 0, 0, 0.4)),
+    color-mix(in srgb, var(--c) 8%, rgba(14, 10, 30, 0.55));
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3),
+    inset 0 0 24px rgba(0, 0, 0, 0.4),
+    0 14px 36px -8px rgba(0, 0, 0, 0.55),
+    0 0 28px color-mix(in srgb, var(--c) calc(var(--fill) * 50%), transparent);
+  backdrop-filter: blur(26px) saturate(200%) brightness(112%);
+  -webkit-backdrop-filter: blur(26px) saturate(200%) brightness(112%);
+  transition: box-shadow 0.12s linear;
+}
+#mixer-faders.vertical .mixer-fader-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(var(--fill) * 100%);
+  background: linear-gradient(0deg,
+    color-mix(in srgb, var(--c) 85%, transparent),
+    color-mix(in srgb, var(--c) 35%, transparent) 60%,
+    color-mix(in srgb, var(--c) 12%, transparent) 100%);
+  box-shadow: 0 0 28px color-mix(in srgb, var(--c) 60%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--c) 80%, transparent);
+  transition: height 0.08s linear;
+}
+#mixer-faders.vertical .mixer-fader-thumb {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, 50%);
+  bottom: calc(var(--fill) * 100%);
+  width: 84px;
+  height: 18px;
+  border-radius: 9px;
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--c) 80%, white),
+    var(--c));
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+    0 4px 14px color-mix(in srgb, var(--c) 70%, transparent),
+    0 0 24px color-mix(in srgb, var(--c) 50%, transparent);
+  transition: bottom 0.08s linear, transform 0.18s var(--transition-spring);
+}
+
+/* Horizontal orientation */
+#mixer-faders.horizontal .mixer-fader {
+  flex-direction: row;
+  height: 64px;
+  padding: 0 12px;
+}
+#mixer-faders.horizontal .mixer-fader-track {
+  position: relative;
+  height: 44px;
+  flex: 1 1 auto;
+  border-radius: 22px;
+  overflow: hidden;
+  background:
+    linear-gradient(90deg,
+      rgba(0, 0, 0, 0.25),
+      rgba(0, 0, 0, 0.4)),
+    color-mix(in srgb, var(--c) 8%, rgba(14, 10, 30, 0.55));
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3),
+    inset 0 0 24px rgba(0, 0, 0, 0.4),
+    0 14px 36px -8px rgba(0, 0, 0, 0.55),
+    0 0 28px color-mix(in srgb, var(--c) calc(var(--fill) * 50%), transparent);
+  backdrop-filter: blur(26px) saturate(200%) brightness(112%);
+  -webkit-backdrop-filter: blur(26px) saturate(200%) brightness(112%);
+}
+#mixer-faders.horizontal .mixer-fader-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: calc(var(--fill) * 100%);
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--c) 12%, transparent),
+    color-mix(in srgb, var(--c) 35%, transparent) 40%,
+    color-mix(in srgb, var(--c) 85%, transparent));
+  box-shadow: 0 0 28px color-mix(in srgb, var(--c) 60%, transparent);
+  border-right: 1px solid color-mix(in srgb, var(--c) 80%, transparent);
+  transition: width 0.08s linear;
+}
+#mixer-faders.horizontal .mixer-fader-thumb {
+  position: absolute;
+  top: 50%;
+  transform: translate(50%, -50%);
+  left: calc(var(--fill) * 100%);
+  height: 60px;
+  width: 18px;
+  border-radius: 9px;
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--c) 80%, white),
+    var(--c));
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow:
+    inset 1px 0 0 rgba(255, 255, 255, 0.45),
+    inset -1px 0 0 rgba(0, 0, 0, 0.25),
+    0 4px 14px color-mix(in srgb, var(--c) 70%, transparent),
+    0 0 24px color-mix(in srgb, var(--c) 50%, transparent);
+  transition: left 0.08s linear, transform 0.18s var(--transition-spring);
+}
+
+/* Active fader highlight (when a finger is touching it) */
+.mixer-fader.touched .mixer-fader-track {
+  border-color: var(--c);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3),
+    inset 0 0 24px rgba(0, 0, 0, 0.4),
+    0 14px 40px -8px rgba(0, 0, 0, 0.55),
+    0 0 60px color-mix(in srgb, var(--c) 75%, transparent);
+}
+.mixer-fader.touched .mixer-fader-thumb {
+  transform: translate(-50%, 50%) scale(1.2);
+}
+#mixer-faders.horizontal .mixer-fader.touched .mixer-fader-thumb {
+  transform: translate(50%, -50%) scale(1.2);
+}
+
+/* Labels */
+.mixer-fader-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--color-text-bright);
+  text-shadow: 0 0 12px color-mix(in srgb, var(--c) 70%, transparent);
+}
+.mixer-fader-value {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: color-mix(in srgb, var(--c) 80%, var(--color-text-dim));
+  letter-spacing: 0.06em;
+  min-width: 44px;
+  text-align: center;
+}
+#mixer-faders.horizontal .mixer-fader-label,
+#mixer-faders.horizontal .mixer-fader-value {
+  min-width: 56px;
+}
+
+/* Hide the mixer instructions overlay when not in mixer mode (uses same class) */
+#mixer-instructions-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 90;
+  background: rgba(5, 5, 16, 0.7);
+  backdrop-filter: blur(30px);
+}
+#mixer-instructions-overlay.hidden { display: none; }
+
 /* ────────────────────────────────────────────
    DJ Advanced Toolbar (top center, under mode switcher)
    ──────────────────────────────────────────── */

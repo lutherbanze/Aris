@@ -775,6 +775,16 @@ function applyEQKills() {
   eqHighNode.gain.linearRampToValueAtTime(eqKillState.high ? -40 : 0, t + r);
 }
 
+/**
+ * Continuous EQ gain (-12 .. +12 dB typical). Used by Mixer mode.
+ */
+export function setEQGain(band, dB) {
+  const node = band === 'low' ? eqLowNode : band === 'mid' ? eqMidNode : band === 'high' ? eqHighNode : null;
+  if (!node || !audioCtx) return;
+  const t = audioCtx.currentTime;
+  node.gain.linearRampToValueAtTime(dB, t + 0.05);
+}
+
 // ═══════════════════════════════════════════
 // Stutter / Beat-Repeat
 // ═══════════════════════════════════════════

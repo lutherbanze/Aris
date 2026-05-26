@@ -24,6 +24,26 @@ export class Renderer {
     this.partCanvas = particleCanvas;
     this.partCtx = particleCanvas.getContext('2d');
     this.theme = null;
+    // Cover-fit transform of the video inside the canvas (CSS pixels).
+    // Recomputed every frame in drawCamera() based on the actual videoWidth/Height.
+    this.videoTransform = { offsetX: 0, offsetY: 0, drawW: 1, drawH: 1 };
+  }
+
+  /**
+   * Map a normalized landmark x (0..1, MediaPipe video coords) to the mirrored
+   * canvas pixel position, honoring the cover-fit transform.
+   */
+  mapX(normX) {
+    const t = this.videoTransform;
+    return this.width - t.offsetX - normX * t.drawW;
+  }
+
+  /**
+   * Map a normalized landmark y (0..1) to canvas pixel y.
+   */
+  mapY(normY) {
+    const t = this.videoTransform;
+    return t.offsetY + normY * t.drawH;
   }
 
   setTheme(theme) {
@@ -50,18 +70,40 @@ export class Renderer {
   }
 
   /**
-   * Draw the mirrored webcam feed.
+   * Draw the mirrored webcam feed with cover-fit (preserves aspect ratio,
+   * crops sides/top instead of stretching).
    * @param {HTMLVideoElement} video
    */
   drawCamera(video) {
     const ctx = this.camCtx;
-    ctx.save();
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    if (!vw || !vh) return;
 
-    // Mirror horizontally
+    const canvasAspect = this.width / this.height;
+    const videoAspect = vw / vh;
+
+    let drawW, drawH, offsetX, offsetY;
+    if (videoAspect > canvasAspect) {
+      // Video relatively wider → fit by height, crop the sides
+      drawH = this.height;
+      drawW = drawH * videoAspect;
+      offsetX = (this.width - drawW) / 2;
+      offsetY = 0;
+    } else {
+      // Video relatively taller → fit by width, crop top/bottom
+      drawW = this.width;
+      drawH = drawW / videoAspect;
+      offsetX = 0;
+      offsetY = (this.height - drawH) / 2;
+    }
+
+    this.videoTransform = { offsetX, offsetY, drawW, drawH };
+
+    ctx.save();
     ctx.translate(this.width, 0);
     ctx.scale(-1, 1);
-
-    ctx.drawImage(video, 0, 0, this.width, this.height);
+    ctx.drawImage(video, offsetX, offsetY, drawW, drawH);
     ctx.restore();
   }
 
@@ -82,11 +124,10 @@ export class Renderer {
       for (const [i, j] of CONNECTIONS) {
         const a = landmarks[i];
         const b = landmarks[j];
-        // Mirror X coordinates
-        const ax = (1 - a.x) * this.width;
-        const ay = a.y * this.height;
-        const bx = (1 - b.x) * this.width;
-        const by = b.y * this.height;
+        const ax = this.mapX(a.x);
+        const ay = this.mapY(a.y);
+        const bx = this.mapX(b.x);
+        const by = this.mapY(b.y);
 
         ctx.beginPath();
         ctx.moveTo(ax, ay);
@@ -97,8 +138,8 @@ export class Renderer {
       // Draw landmark points
       for (let i = 0; i < landmarks.length; i++) {
         const lm = landmarks[i];
-        const x = (1 - lm.x) * this.width;
-        const y = lm.y * this.height;
+        const x = this.mapX(lm.x);
+        const y = this.mapY(lm.y);
 
         // Fingertips get larger dots
         const isTip = [4, 8, 12, 16, 20].includes(i);

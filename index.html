@@ -39,6 +39,9 @@
       <button class="mode-btn" data-mode="dj" id="mode-dj">
         🎧 <span class="mode-label">DJ Mode</span>
       </button>
+      <button class="mode-btn" data-mode="mixer" id="mode-mixer">
+        🎚️ <span class="mode-label">Mixer</span>
+      </button>
     </div>
 
     <!-- ── HUD Panels ── -->
@@ -74,6 +77,88 @@
     <div id="title-badge" class="glass-panel">
       <div class="title-main">Anti-Gravity Controller</div>
       <div class="title-sub">Hand Tracking • MediaPipe AI</div>
+    </div>
+
+    <!-- ── MIXER MODE — Faders controlled by fingertips ── -->
+    <div id="mixer-stage" class="mixer-only">
+      <button class="mixer-corner-btn" id="mixer-layout-btn" title="Toggle orientation">
+        <span id="mixer-layout-icon">⇅</span>
+      </button>
+      <button class="mixer-corner-btn" id="mixer-upload-btn" title="Load a track">📂</button>
+      <button class="mixer-corner-btn" id="mixer-play-btn" title="Play/Pause">▶</button>
+
+      <div id="mixer-faders" class="vertical">
+        <div class="mixer-fader" data-param="volume" style="--c:#f1f5f9">
+          <div class="mixer-fader-track">
+            <div class="mixer-fader-fill"></div>
+            <div class="mixer-fader-thumb"></div>
+          </div>
+          <span class="mixer-fader-value">100%</span>
+          <span class="mixer-fader-label">VOL</span>
+        </div>
+        <div class="mixer-fader" data-param="low" style="--c:#ef4444">
+          <div class="mixer-fader-track">
+            <div class="mixer-fader-fill"></div>
+            <div class="mixer-fader-thumb"></div>
+          </div>
+          <span class="mixer-fader-value">0 dB</span>
+          <span class="mixer-fader-label">LOW</span>
+        </div>
+        <div class="mixer-fader" data-param="mid" style="--c:#f97316">
+          <div class="mixer-fader-track">
+            <div class="mixer-fader-fill"></div>
+            <div class="mixer-fader-thumb"></div>
+          </div>
+          <span class="mixer-fader-value">0 dB</span>
+          <span class="mixer-fader-label">MID</span>
+        </div>
+        <div class="mixer-fader" data-param="high" style="--c:#3b82f6">
+          <div class="mixer-fader-track">
+            <div class="mixer-fader-fill"></div>
+            <div class="mixer-fader-thumb"></div>
+          </div>
+          <span class="mixer-fader-value">0 dB</span>
+          <span class="mixer-fader-label">HIGH</span>
+        </div>
+        <div class="mixer-fader" data-param="filter" style="--c:#a855f7">
+          <div class="mixer-fader-track">
+            <div class="mixer-fader-fill"></div>
+            <div class="mixer-fader-thumb"></div>
+          </div>
+          <span class="mixer-fader-value">20k</span>
+          <span class="mixer-fader-label">FILTER</span>
+        </div>
+        <div class="mixer-fader" data-param="reverb" style="--c:#22d3ee">
+          <div class="mixer-fader-track">
+            <div class="mixer-fader-fill"></div>
+            <div class="mixer-fader-thumb"></div>
+          </div>
+          <span class="mixer-fader-value">0%</span>
+          <span class="mixer-fader-label">VERB</span>
+        </div>
+      </div>
+
+      <div id="mixer-empty-hint">
+        <span>📂 Tap the upload icon to load a track</span>
+      </div>
+    </div>
+
+    <!-- Mixer instructions overlay (first time) -->
+    <div id="mixer-instructions-overlay" class="hidden">
+      <div class="instructions-card">
+        <div class="instructions-emoji">🎚️</div>
+        <h1 class="instructions-title">Simple Mixer</h1>
+        <p class="instructions-body">
+          Six faders, your fingertip slides them.<br>
+          No gestures to memorize.
+        </p>
+        <ul class="gesture-list">
+          <li><span class="gesture-icon">☝️</span><span>Move your <span class="gesture-name">index finger</span> over any fader to set its value</span></li>
+          <li><span class="gesture-icon">🙌</span><span>Use both hands to move two faders at once</span></li>
+          <li><span class="gesture-icon">⇅</span><span>Top-left button toggles vertical / horizontal layout</span></li>
+        </ul>
+        <button class="start-btn" id="mixer-start-btn">Start Mixer</button>
+      </div>
     </div>
 
     <!-- ── Floating Sound Pads (DJ only) ── -->

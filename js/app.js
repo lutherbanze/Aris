@@ -58,6 +58,17 @@ const themeButtons = document.querySelectorAll('.theme-btn');
 const naturalModeToggle = document.getElementById('natural-mode-toggle');
 const minimalUIToggle = document.getElementById('minimal-ui-toggle');
 
+// Mixer mode
+const mixerStage = document.getElementById('mixer-stage');
+const mixerFadersEl = document.getElementById('mixer-faders');
+const mixerInstructionsOverlay = document.getElementById('mixer-instructions-overlay');
+const mixerStartBtn = document.getElementById('mixer-start-btn');
+const mixerLayoutBtn = document.getElementById('mixer-layout-btn');
+const mixerLayoutIcon = document.getElementById('mixer-layout-icon');
+const mixerUploadBtn = document.getElementById('mixer-upload-btn');
+const mixerPlayBtn = document.getElementById('mixer-play-btn');
+const mixerFaderEls = document.querySelectorAll('.mixer-fader');
+
 // Sound pads (DJ floating samples)
 const soundPadElements = document.querySelectorAll('.sound-pad');
 const soundPadAudios = {
@@ -137,6 +148,18 @@ let bothOpenForXfade = false;
 // Last bass energy for reactive UI
 let smoothedBass = 0;
 
+// ── Mixer state ──
+let mixerLayout = 'vertical'; // 'vertical' | 'horizontal'
+const mixerFaders = []; // populated in init: { el, param, value, touched }
+const MIXER_DEFAULTS = {
+  volume: 0.67,
+  low: 0.5,
+  mid: 0.5,
+  high: 0.5,
+  filter: 1.0,
+  reverb: 0.0,
+};
+
 // ── Systems ──
 const particleSystem = new ParticleSystem();
 const renderer = new Renderer(cameraCanvas, particleCanvas);
@@ -192,6 +215,9 @@ async function init() {
   naturalModeToggle.addEventListener('click', toggleNaturalMode);
   minimalUIToggle.addEventListener('click', toggleMinimalUI);
 
+  // Mixer
+  setupMixer();
+
   // Advanced DJ toolbar
   setupDJToolbar();
 
@@ -234,8 +260,9 @@ function switchMode(mode) {
     btn.classList.toggle('active', btn.dataset.mode === mode);
   });
 
-  // Toggle body class
+  // Toggle body classes
   document.body.classList.toggle('dj-mode', mode === 'dj');
+  document.body.classList.toggle('mixer-mode', mode === 'mixer');
 
   // Update title badge
   const titleMain = document.querySelector('.title-main');
@@ -243,29 +270,39 @@ function switchMode(mode) {
   if (mode === 'dj') {
     titleMain.textContent = 'DJ Controller';
     titleSub.textContent = 'Hand Tracking • Audio FX';
+  } else if (mode === 'mixer') {
+    titleMain.textContent = 'Simple Mixer';
+    titleSub.textContent = 'Slide fingers on faders';
   } else {
     titleMain.textContent = 'Anti-Gravity Controller';
     titleSub.textContent = 'Hand Tracking • MediaPipe AI';
   }
 
-  // If switching to DJ and camera hasn't started, show DJ instructions
-  if (mode === 'dj' && !cameraStarted) {
-    instructionsOverlay.classList.add('hidden');
-    djInstructionsOverlay.classList.remove('hidden');
-  } else if (mode === 'antigravity' && !cameraStarted) {
-    djInstructionsOverlay.classList.add('hidden');
-    instructionsOverlay.classList.remove('hidden');
+  // Hide all instruction overlays first
+  instructionsOverlay.classList.add('hidden');
+  djInstructionsOverlay.classList.add('hidden');
+  mixerInstructionsOverlay.classList.add('hidden');
+
+  // Show the appropriate instructions if camera isn't running yet
+  if (!cameraStarted) {
+    if (mode === 'dj') djInstructionsOverlay.classList.remove('hidden');
+    else if (mode === 'mixer') mixerInstructionsOverlay.classList.remove('hidden');
+    else instructionsOverlay.classList.remove('hidden');
+  } else {
+    // Camera already running
+    if (mode === 'dj' && !djTrackLoaded) djInstructionsOverlay.classList.remove('hidden');
+    if (mode === 'mixer' && !djTrackLoaded) mixerStage.classList.remove('has-track');
   }
 
-  // If switching to DJ and camera is running, show DJ instructions if no track loaded
-  if (mode === 'dj' && cameraStarted && !djTrackLoaded) {
-    djInstructionsOverlay.classList.remove('hidden');
-  }
-
-  // Reset effects when leaving DJ mode
+  // Reset effects on Anti-Gravity (no audio there)
   if (mode === 'antigravity') {
     audio.resetEffects();
-    djInstructionsOverlay.classList.add('hidden');
+  } else if (mode === 'mixer') {
+    // Apply current mixer values immediately so the audio matches what's on screen
+    if (djTrackLoaded) {
+      mixerStage.classList.add('has-track');
+      mixerFaders.forEach((f) => applyMixerValue(f.param, f.value));
+    }
   }
 }
 
@@ -394,6 +431,16 @@ async function handleAudioFile(file) {
     // Update upload zone
     uploadText.innerHTML = `<strong>✓ ${info.name}</strong>`;
 
+    // Mixer mode: reveal the faders + apply current values + auto-play
+    mixerStage.classList.add('has-track');
+    if (currentMode === 'mixer') {
+      mixerFaders.forEach((f) => applyMixerValue(f.param, f.value));
+      if (!audio.getIsPlaying()) {
+        audio.play();
+        mixerPlayBtn.textContent = '⏸';
+      }
+    }
+
     // Enable start button
     djStartBtn.disabled = false;
     djStartBtn.textContent = 'Start DJ Experience';
@@ -510,16 +557,16 @@ function loop() {
       const spread = getSpread(handLandmarks);
       const forceType = getForceType(gesture);
 
-      const palmX = (1 - palm.x) * renderer.width;
-      const palmY = palm.y * renderer.height;
+      const palmX = renderer.mapX(palm.x);
+      const palmY = renderer.mapY(palm.y);
       const intensity = spread / 100;
 
       // Edge-triggered finger taps (always evaluated)
       const handId = `hand_${h}`;
       const taps = getFingerTaps(handLandmarks, handId);
       for (const tap of taps) {
-        const tx = (1 - tap.x) * renderer.width;
-        const ty = tap.y * renderer.height;
+        const tx = renderer.mapX(tap.x);
+        const ty = renderer.mapY(tap.y);
         tapBursts.push({ x: tx, y: ty, age: 0, maxAge: 28 });
 
         if (currentMode === 'antigravity') {
@@ -547,8 +594,8 @@ function loop() {
 
         if (forceType === 'laser') {
           const tip = getIndexTip(handLandmarks);
-          const tipX = (1 - tip.x) * renderer.width;
-          const tipY = tip.y * renderer.height;
+          const tipX = renderer.mapX(tip.x);
+          const tipY = renderer.mapY(tip.y);
           particleSystem.applyHandForce(forceType, palmX, palmY, strength, { x: tipX, y: tipY });
           renderer.drawLaser(palmX, palmY, tipX, tipY);
         } else {
@@ -593,10 +640,10 @@ function loop() {
 
     // ── Apply fusion effect (visual + audio + particles) ──
     if (connection) {
-      const x1 = (1 - connection.p1.x) * renderer.width;
-      const y1 = connection.p1.y * renderer.height;
-      const x2 = (1 - connection.p2.x) * renderer.width;
-      const y2 = connection.p2.y * renderer.height;
+      const x1 = renderer.mapX(connection.p1.x);
+      const y1 = renderer.mapY(connection.p1.y);
+      const x2 = renderer.mapX(connection.p2.x);
+      const y2 = renderer.mapY(connection.p2.y);
       renderer.drawHandConnection(x1, y1, x2, y2, connection.strength);
 
       if (currentMode === 'antigravity') {
@@ -617,18 +664,18 @@ function loop() {
       if (Math.abs(rate - 1.0) < 0.04) rate = 1.0; // dead-zone snap
       audio.setPlaybackRate(rate);
 
-      const x1 = (1 - handSpan.p1.x) * renderer.width;
-      const y1 = handSpan.p1.y * renderer.height;
-      const x2 = (1 - handSpan.p2.x) * renderer.width;
-      const y2 = handSpan.p2.y * renderer.height;
+      const x1 = renderer.mapX(handSpan.p1.x);
+      const y1 = renderer.mapY(handSpan.p1.y);
+      const x2 = renderer.mapX(handSpan.p2.x);
+      const y2 = renderer.mapY(handSpan.p2.y);
       renderer.drawHandSpanScene(x1, y1, x2, y2, handSpan.t, rate);
     } else if (currentMode === 'dj' && djTrackLoaded && audio.getPlaybackRate() !== 1.0) {
       // Ease rate back to normal when fewer than 2 hands or during fusion
       audio.setPlaybackRate(1.0);
     }
 
-    // Draw landmarks on camera canvas
-    renderer.drawLandmarks(landmarks);
+    // Draw landmarks (skipped in mixer mode for a clean look)
+    if (currentMode !== 'mixer') renderer.drawLandmarks(landmarks);
   } else {
     wasHandsConnected = false;
     bothFistFrames = 0;
@@ -640,6 +687,9 @@ function loop() {
 
   // Check fingertip hits on floating sound pads (DJ mode)
   checkSoundPadHits(landmarks);
+
+  // Mixer mode: fingertips driving the faders
+  if (currentMode === 'mixer') processMixer(landmarks);
 
   // ── Render & expire tap bursts ──
   for (let i = tapBursts.length - 1; i >= 0; i--) {
@@ -668,8 +718,8 @@ function loop() {
     document.documentElement.style.setProperty('--bass-pulse', smoothedBass.toFixed(3));
 
     const palmData = landmarks.length > 0 ? {
-      x: (1 - getPalmCenter(landmarks[0]).x) * renderer.width,
-      y: getPalmCenter(landmarks[0]).y * renderer.height,
+      x: renderer.mapX(getPalmCenter(landmarks[0]).x),
+      y: renderer.mapY(getPalmCenter(landmarks[0]).y),
     } : null;
 
     djRenderer.draw(
@@ -693,6 +743,140 @@ function loop() {
   updateHUD(landmarks.length, fps, activeGesture, activeSpread);
 
   animFrameId = requestAnimationFrame(loop);
+}
+
+// ═══════════════════════════════════════════
+// Mixer Mode
+// ═══════════════════════════════════════════
+
+function setupMixer() {
+  // Build fader state list
+  mixerFaderEls.forEach((el) => {
+    const param = el.dataset.param;
+    const value = MIXER_DEFAULTS[param] ?? 0.5;
+    el.style.setProperty('--fill', value.toFixed(3));
+    mixerFaders.push({ el, param, value, touched: false });
+    updateMixerLabel({ el, param, value });
+  });
+
+  mixerLayoutBtn.addEventListener('click', toggleMixerLayout);
+  mixerUploadBtn.addEventListener('click', () => audioFileInput.click());
+  mixerPlayBtn.addEventListener('click', () => {
+    if (!djTrackLoaded) { audioFileInput.click(); return; }
+    audio.initAudioEngine();
+    if (audio.getIsPlaying()) {
+      audio.pause();
+      mixerPlayBtn.textContent = '▶';
+    } else {
+      audio.play();
+      mixerPlayBtn.textContent = '⏸';
+    }
+  });
+
+  mixerStartBtn.addEventListener('click', async () => {
+    try {
+      await startCamera();
+      mixerInstructionsOverlay.classList.add('hidden');
+      audio.initAudioEngine();
+      mixerFaders.forEach((f) => applyMixerValue(f.param, f.value));
+      if (!isRunning) { isRunning = true; lastTime = performance.now(); loop(); }
+    } catch (err) {
+      console.error('Camera access failed:', err);
+      mixerInstructionsOverlay.classList.add('hidden');
+      showError(getCameraErrorMessage(err));
+    }
+  });
+}
+
+function toggleMixerLayout() {
+  mixerLayout = mixerLayout === 'vertical' ? 'horizontal' : 'vertical';
+  mixerFadersEl.classList.toggle('vertical', mixerLayout === 'vertical');
+  mixerFadersEl.classList.toggle('horizontal', mixerLayout === 'horizontal');
+  mixerLayoutIcon.textContent = mixerLayout === 'vertical' ? '⇅' : '⇆';
+}
+
+/**
+ * Per-frame: check fingertip(s) against each fader and update values.
+ */
+function processMixer(landmarks) {
+  if (!djTrackLoaded) return;
+  const tips = landmarks
+    .filter((lm) => lm && lm.length >= 21)
+    .map((lm) => ({ x: renderer.mapX(lm[8].x), y: renderer.mapY(lm[8].y) }));
+
+  for (const f of mixerFaders) {
+    const rect = f.el.getBoundingClientRect();
+    if (rect.width === 0) continue;
+
+    let target = null;
+    for (const t of tips) {
+      if (t.x < rect.left || t.x > rect.right || t.y < rect.top || t.y > rect.bottom) continue;
+      if (mixerLayout === 'vertical') {
+        target = 1 - (t.y - rect.top) / rect.height;
+      } else {
+        target = (t.x - rect.left) / rect.width;
+      }
+      target = Math.max(0, Math.min(1, target));
+      break;
+    }
+
+    const wasTouched = f.touched;
+    if (target !== null) {
+      f.value += (target - f.value) * 0.35;
+      f.touched = true;
+    } else {
+      f.touched = false;
+    }
+
+    f.el.style.setProperty('--fill', f.value.toFixed(3));
+    if (wasTouched !== f.touched) f.el.classList.toggle('touched', f.touched);
+
+    applyMixerValue(f.param, f.value);
+    updateMixerLabel(f);
+  }
+}
+
+function applyMixerValue(param, v) {
+  switch (param) {
+    case 'volume':
+      audio.setVolume(v * 1.5, 1);
+      break;
+    case 'low':
+    case 'mid':
+    case 'high':
+      audio.setEQGain(param, (v - 0.5) * 24); // -12..+12 dB
+      break;
+    case 'filter': {
+      const hz = 200 * Math.pow(100, v); // 200 Hz ↔ 20 kHz exponential
+      audio.setFilter(hz, 1, 1);
+      break;
+    }
+    case 'reverb':
+      audio.setReverb(v, 1);
+      break;
+  }
+}
+
+function updateMixerLabel(f) {
+  const valEl = f.el.querySelector('.mixer-fader-value');
+  if (!valEl) return;
+  switch (f.param) {
+    case 'volume':
+      valEl.textContent = `${Math.round(f.value * 150)}%`; break;
+    case 'low':
+    case 'mid':
+    case 'high': {
+      const dB = (f.value - 0.5) * 24;
+      valEl.textContent = `${dB >= 0 ? '+' : ''}${dB.toFixed(1)}`; break;
+    }
+    case 'filter': {
+      const hz = 200 * Math.pow(100, f.value);
+      valEl.textContent = hz >= 1000 ? `${(hz / 1000).toFixed(1)}k` : `${Math.round(hz)}`;
+      break;
+    }
+    case 'reverb':
+      valEl.textContent = `${Math.round(f.value * 100)}%`; break;
+  }
 }
 
 // ═══════════════════════════════════════════
@@ -749,8 +933,8 @@ function checkSoundPadHits(landmarks) {
     for (const lm of landmarks) {
       if (!lm || lm.length < 21) continue;
       const tip = lm[8]; // INDEX_TIP
-      const tx = (1 - tip.x) * renderer.width;
-      const ty = tip.y * renderer.height;
+      const tx = renderer.mapX(tip.x);
+      const ty = renderer.mapY(tip.y);
       if (tx >= rect.left && tx <= rect.right && ty >= rect.top && ty <= rect.bottom) {
         triggerSoundPad(padEl.dataset.pad);
         break; // one hand per pad per frame is enough
