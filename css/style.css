@@ -404,6 +404,25 @@ html, body {
   pointer-events: none;
 }
 
+#dj-instructions-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 5, 16, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  opacity: 1;
+  transition: opacity 0.5s ease, visibility 0.5s ease;
+}
+#dj-instructions-overlay.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .instructions-card {
   background: var(--glass-bg);
   backdrop-filter: blur(24px);
@@ -978,12 +997,21 @@ body.mixer-mode #theme-bar {
   pointer-events: none;
 }
 
-/* Camera becomes a soft, blurred ambient backdrop in mixer mode */
+/* Mixer mode: keep the camera clean & visible — no blur, no heavy overlay */
 body.mixer-mode #camera-canvas {
-  filter: blur(60px) saturate(160%) brightness(45%);
+  filter: saturate(115%) brightness(100%);
 }
 body.mixer-mode #bg-overlay {
-  opacity: 0.55;
+  opacity: 0.15;
+}
+
+/* Hide every instructions overlay while in mixer mode (covers a stray overlay
+   that didn't have its own hidden rule) */
+body.mixer-mode #instructions-overlay,
+body.mixer-mode #dj-instructions-overlay {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 #mixer-stage {
@@ -1084,20 +1112,21 @@ body.mixer-mode #mixer-stage:not(.has-track) #mixer-faders { display: none; }
   flex: 1 1 auto;
   border-radius: 32px;
   overflow: hidden;
+  /* Almost-empty glass — lets the live camera read through */
   background:
     linear-gradient(180deg,
-      rgba(0, 0, 0, 0.25),
-      rgba(0, 0, 0, 0.4)),
-    color-mix(in srgb, var(--c) 8%, rgba(14, 10, 30, 0.55));
-  border: 1px solid rgba(255, 255, 255, 0.15);
+      rgba(255, 255, 255, 0.06),
+      rgba(255, 255, 255, 0.02) 40%,
+      color-mix(in srgb, var(--c) 6%, transparent));
+  border: 1px solid rgba(255, 255, 255, 0.18);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.3),
-    inset 0 0 24px rgba(0, 0, 0, 0.4),
-    0 14px 36px -8px rgba(0, 0, 0, 0.55),
-    0 0 28px color-mix(in srgb, var(--c) calc(var(--fill) * 50%), transparent);
-  backdrop-filter: blur(26px) saturate(200%) brightness(112%);
-  -webkit-backdrop-filter: blur(26px) saturate(200%) brightness(112%);
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.22),
+    inset 0 0 30px color-mix(in srgb, var(--c) 6%, transparent),
+    0 14px 36px -8px rgba(0, 0, 0, 0.45),
+    0 0 24px color-mix(in srgb, var(--c) calc(var(--fill) * 45%), transparent);
+  backdrop-filter: blur(18px) saturate(180%) brightness(108%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%) brightness(108%);
   transition: box-shadow 0.12s linear;
 }
 #mixer-faders.vertical .mixer-fader-fill {
@@ -1106,12 +1135,15 @@ body.mixer-mode #mixer-stage:not(.has-track) #mixer-faders { display: none; }
   right: 0;
   bottom: 0;
   height: calc(var(--fill) * 100%);
+  /* Translucent color fill — strongest near the top edge (where the value reads) */
   background: linear-gradient(0deg,
-    color-mix(in srgb, var(--c) 85%, transparent),
-    color-mix(in srgb, var(--c) 35%, transparent) 60%,
-    color-mix(in srgb, var(--c) 12%, transparent) 100%);
-  box-shadow: 0 0 28px color-mix(in srgb, var(--c) 60%, transparent);
-  border-top: 1px solid color-mix(in srgb, var(--c) 80%, transparent);
+    color-mix(in srgb, var(--c) 35%, transparent),
+    color-mix(in srgb, var(--c) 18%, transparent) 60%,
+    color-mix(in srgb, var(--c) 6%, transparent) 100%);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--c) 70%, transparent),
+    0 -2px 12px color-mix(in srgb, var(--c) 55%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--c) 85%, transparent);
   transition: height 0.08s linear;
 }
 #mixer-faders.vertical .mixer-fader-thumb {
@@ -1147,19 +1179,19 @@ body.mixer-mode #mixer-stage:not(.has-track) #mixer-faders { display: none; }
   border-radius: 22px;
   overflow: hidden;
   background:
-    linear-gradient(90deg,
-      rgba(0, 0, 0, 0.25),
-      rgba(0, 0, 0, 0.4)),
-    color-mix(in srgb, var(--c) 8%, rgba(14, 10, 30, 0.55));
-  border: 1px solid rgba(255, 255, 255, 0.15);
+    linear-gradient(180deg,
+      rgba(255, 255, 255, 0.06),
+      rgba(255, 255, 255, 0.02) 40%,
+      color-mix(in srgb, var(--c) 6%, transparent));
+  border: 1px solid rgba(255, 255, 255, 0.18);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.3),
-    inset 0 0 24px rgba(0, 0, 0, 0.4),
-    0 14px 36px -8px rgba(0, 0, 0, 0.55),
-    0 0 28px color-mix(in srgb, var(--c) calc(var(--fill) * 50%), transparent);
-  backdrop-filter: blur(26px) saturate(200%) brightness(112%);
-  -webkit-backdrop-filter: blur(26px) saturate(200%) brightness(112%);
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.22),
+    inset 0 0 30px color-mix(in srgb, var(--c) 6%, transparent),
+    0 14px 36px -8px rgba(0, 0, 0, 0.45),
+    0 0 24px color-mix(in srgb, var(--c) calc(var(--fill) * 45%), transparent);
+  backdrop-filter: blur(18px) saturate(180%) brightness(108%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%) brightness(108%);
 }
 #mixer-faders.horizontal .mixer-fader-fill {
   position: absolute;
@@ -1168,11 +1200,13 @@ body.mixer-mode #mixer-stage:not(.has-track) #mixer-faders { display: none; }
   left: 0;
   width: calc(var(--fill) * 100%);
   background: linear-gradient(90deg,
-    color-mix(in srgb, var(--c) 12%, transparent),
-    color-mix(in srgb, var(--c) 35%, transparent) 40%,
-    color-mix(in srgb, var(--c) 85%, transparent));
-  box-shadow: 0 0 28px color-mix(in srgb, var(--c) 60%, transparent);
-  border-right: 1px solid color-mix(in srgb, var(--c) 80%, transparent);
+    color-mix(in srgb, var(--c) 6%, transparent),
+    color-mix(in srgb, var(--c) 18%, transparent) 60%,
+    color-mix(in srgb, var(--c) 35%, transparent));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--c) 70%, transparent),
+    2px 0 12px color-mix(in srgb, var(--c) 55%, transparent);
+  border-right: 1px solid color-mix(in srgb, var(--c) 85%, transparent);
   transition: width 0.08s linear;
 }
 #mixer-faders.horizontal .mixer-fader-thumb {
